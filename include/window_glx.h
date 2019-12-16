@@ -31,7 +31,7 @@ private:
 	bool handle_event();
 
 	void render();
-	void draw_ui();
+	void do_ui();
 
 	bool init_GLX();
 	bool init_GL_functions();

@@ -1,18 +1,26 @@
 #include "nuklear_lib.h"
-#include "process.h"
+#ifndef WINBUILD
 #include "thread.h"
+#endif
 #include "timer.h"
 #include <string>
 #include <math.h>
 #include <stdio.h>
 
+#ifndef WINBUILD
+#include <process_controller.h>
 #ifdef NUKLEAR_GLES2
 #include "window_gles2.h"
 #else
 #include "window_glx.h"
 #endif
+#else
+#include "window_gdi.h"
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
-
+#ifndef WINBUILD
 class ThreadTest : public Thread
 {
 	unsigned long time;
@@ -22,27 +30,34 @@ public:
 		time = NkWindow::get()->timestamp();
 	}
 
-	virtual void entry() override {
+	virtual void entry() {
 		if (NkWindow::get()->timestamp() - time > 1000){
 			event.push(0, (void*)time);
 			time = NkWindow::get()->timestamp();
 		}
+
 		usleep(50000);
 	}
 };
+#endif
 
 class test {
 	NkWindow* screen;
 	NkChartSlot* m_slot0;
 	Timer timer;
+#ifndef WINBUILD
 	ThreadTest threadtest;
+#endif
 public:
+#ifndef WINBUILD
 #ifdef NUKLEAR_GLES2
 		test() : screen(NkWindowGLES2::create(800,600, true)), timer(3000, false){
 #else
 		test() : screen(NkWindowGLX::create(800,600, true)), timer(3000, false){
 #endif
-
+#else
+		test() : screen(NkWindowGDI::create(800,600, true)), timer(5000, false){
+#endif
 		screen->add_font("test", "/sources/GIT/nuklear/extra_font/Raleway-Bold.ttf", 16);
 		screen->add_font("test2", "/sources/GIT/nuklear/extra_font/kenvector_future_thin.ttf", 24);
 		screen->load_fonts();
@@ -62,7 +77,7 @@ public:
 		NkComboImage* comboimg = new NkComboImage("ComboImg", 80);
 		NkSliderFloat* slider = new NkSliderFloat("Slider", 0, 100, 50, 1);
 		NkProgress* progress = new NkProgress("Progress", 100, 20, false);
-		NkLabel* label = new NkLabel("Label test", Text_aligment::TEXT_RIGHT);
+		NkLabel* label = new NkLabel("Label test", TEXT_RIGHT);
 		NkCanvas* canvas = new NkCanvas("Canvas");
 		NkLayoutRow *layout_canvas = new NkLayoutRow(400, 400, 1);
 		NkLayoutRowDynamic *layout_chart = new NkLayoutRowDynamic(400, 1);
@@ -136,13 +151,15 @@ public:
 
 		screen->add_widget(widget);
 
-		screen->set_stye(NkWindowGLES2::THEME_DARK);
+		screen->set_stye(NkWindow::THEME_DARK);
 
 		CONNECT_CALLBACK2((checklist), on_change, this);
 		CONNECT_CALLBACK((&timer), on_timer);
-		CONNECT_CALLBACK((&threadtest.event), on_thread);
 		timer.start();
+#ifndef WINBUILD
+		CONNECT_CALLBACK((&threadtest.event), on_thread);
 		threadtest.start();
+#endif
 	}
 
 	~test(){
@@ -163,6 +180,7 @@ IMPLEMENT_CALLBACK_METHOD(on_cb_test, test)
 {
 	printf("Button !\n");
 	timer.stop();
+	exit(0);
 }
 
 IMPLEMENT_CALLBACK_METHOD(on_timer, test)
@@ -181,8 +199,15 @@ IMPLEMENT_CALLBACK_METHOD(on_thread, test)
 {
 	printf("Thread callback\n");
 }
-
+#ifndef WINBUILD
 int main(int argc, char* argv[])
+#else
+#ifdef WINCE
+int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
+#else
+int WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
+#endif
+#endif
 {
 	test test;
 	test.run();

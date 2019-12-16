@@ -83,13 +83,13 @@ public:
 
 	virtual void delete_texture(GLuint id) = 0;
 	virtual GLuint create_texture(const NkTexture& texture) = 0;
-	void load_fonts();
+	virtual void load_fonts();
+	nk_context*  get_ctx();
 protected:
 	struct nk_draw_null_texture* get_draw_null_texture();
 	GLuint device_upload_atlas(void *image, int width, int height);
 	void handle_fd_events();
 	void handle_timer_events();
-	nk_context*  get_ctx();
 	std::vector<NkWidget*> get_widgets();
 	std::vector<UserEvent*>& get_user_events();
 	bool is_running();

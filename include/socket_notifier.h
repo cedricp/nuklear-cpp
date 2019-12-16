@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <nuklear_lib.h>
-#include <window_gles2.h>
 
 class Socket_notifier : public NkEvent {
 	std::vector<int> m_fds;

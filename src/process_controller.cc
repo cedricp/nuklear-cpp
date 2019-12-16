@@ -1,6 +1,6 @@
-#include <process.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <process_controller.h>
 #include <sys/socket.h>
 #include <string.h>
 #include <algorithm>
@@ -22,8 +22,9 @@ bool Process::run(std::string process_name, Communication_mode com_mode, const b
 	m_arguments.insert(m_arguments.begin(), process_name);
 
 	std::vector<const char*> args;
-	for (auto& arg : m_arguments) {
-		args.push_back(arg.c_str());
+
+	for (int i = 0; i <  m_arguments.size(); ++i) {
+		args.push_back(m_arguments[i].c_str());
 	}
 	args.push_back(NULL);
 

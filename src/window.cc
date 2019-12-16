@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <timer.h>
+#ifndef WINBUILD
+#include <sys/select.h>
+#endif
 
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
@@ -18,6 +21,8 @@
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
+
+#include <stdarg.h>
 
 #include <nuklear.h>
 
@@ -57,8 +62,8 @@ NkWindow::NkWindow(int w, int h, bool aa) {
 
 NkWindow::~NkWindow()
 {
-	for (NkWidget* widget : m_impl->widgets){
-		delete widget;
+	for (int i = 0; i < m_impl->widgets.size(); ++i){
+		delete m_impl->widgets[i];
 	}
 	delete m_impl;
 }
@@ -103,7 +108,6 @@ NkWindow::unregister_fd_event(Socket_notifier* sn)
 	std::vector<Socket_notifier*>::iterator it = std::find(m_impl->sockets_notifiers.begin(), m_impl->sockets_notifiers.end(), sn);
 	if (it != m_impl->sockets_notifiers.end())
 		m_impl->sockets_notifiers.erase(it);
-
 }
 
 
@@ -306,21 +310,23 @@ NkWindow::set_stye(StyleTheme theme)
 void
 NkWindow::handle_fd_events()
 {
+#ifndef WINBUILD
 	struct timeval tv;
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 
-	for(Socket_notifier* sn : m_impl->sockets_notifiers){
-		std::vector<int> fds = sn->get_fds();
-		for (int fd : fds){
+	for(int i = 0; i < m_impl->sockets_notifiers.size(); ++i){
+		std::vector<int> fds = m_impl->sockets_notifiers[i]->get_fds();
+		for (int j = 0; j < fds.size(); ++j){
 			fd_set set;
 			FD_ZERO (&set);
-			FD_SET (fd, &set);
-			if (select(fd+1, &set, NULL, NULL, &tv) > 0){
-				sn->data_available(fd);
+			FD_SET (fds[i], &set);
+			if (select(fds[i]+1, &set, NULL, NULL, &tv) > 0){
+				m_impl->sockets_notifiers[i]->data_available(fds[i]);
 			}
 		}
 	}
+#endif
 }
 
 void
@@ -343,11 +349,15 @@ void
 NkWindow::use_font(std::string font_name)
 {
 	if (m_impl->fonts.find(font_name) == m_impl->fonts.end()){
-		fprintf(stderr, "SDLWindow::use_font : Cannot use font %s\n", font_name.c_str());
+		fprintf(stderr, "SDLWindow::use_font : Cannot use font [%s]\n", font_name.c_str());
 		return;
 	}
-	nk_style_set_font(get_ctx(), &m_impl->fonts[font_name].font->handle);
-	printf("Use [%s] [%x]\n", font_name.c_str(), m_impl->fonts[font_name].font);
+	struct nk_user_font* font_handler = &m_impl->fonts[font_name].font->handle;
+	if (!font_handler){
+		fprintf(stderr, "SDLWindow::use_font : font [%s] not loaded\n", font_name.c_str());
+		return;
+	}
+	nk_style_set_font(get_ctx(), font_handler);
 }
 
 void
@@ -372,6 +382,7 @@ NkWindow::get_user_font(std::string font_name)
 void
 NkWindow::load_fonts()
 {
+#ifndef WINBUILD
 	struct nk_font_atlas* atlas = &m_impl->atlas;
     nk_font_atlas_init_default(atlas);
     nk_font_atlas_begin(atlas);
@@ -395,6 +406,7 @@ NkWindow::load_fonts()
 
 	// Set default font
 	atlas->default_font = fi.font;
+#endif
 }
 
 GLuint

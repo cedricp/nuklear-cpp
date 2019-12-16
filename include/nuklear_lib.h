@@ -279,6 +279,7 @@ public:
 
 	friend class NkWindowGLES2;
 	friend class NkWindowGLX;
+	friend class NkWindowGDI;
 };
 
 
@@ -307,9 +308,9 @@ public:
 		TRIANGLE_LEFT,
 		TRIANGLE_RIGHT,
 		PLUS,
-		MINUS,
+		MINUS
 	};
-	NkButton(std::string name, Symbol symbol = Symbol::NONE);
+	NkButton(std::string name, Symbol symbol = NONE);
 	virtual void draw(nk_context* ctx);
 private:
 	std::string m_name;

@@ -85,8 +85,8 @@ NkWidget::NkWidget(std::string name, int posx, int posy, int width, int height){
 
 NkWidget::~NkWidget()
 {
-	for (NkBase* elem : m_elements){
-		delete elem;
+	for (int i = 0; i <  m_elements.size(); ++i){
+		delete m_elements[i];
 	}
 }
 
@@ -108,8 +108,8 @@ NkWidget::draw(nk_context* ctx)
 		if (nk_window_is_hovered(ctx)){
 			is_hovered = true;
 		}
-		for (NkBase* elem : m_elements){
-			elem->draw(ctx);
+		for (int i = 0; i <  m_elements.size(); ++i){
+			m_elements[i]->draw(ctx);
 		}
 	}
 	nk_end(ctx);
@@ -206,10 +206,10 @@ NkButton::NkButton(std::string name, Symbol symbol)
 void
 NkButton::draw(nk_context* ctx)
 {
-	if (m_symbol == Symbol::NONE && !m_name.empty()){
+	if (m_symbol == NONE && !m_name.empty()){
 		if (nk_button_label(ctx, m_name.c_str()) && m_callback)
 			m_callback(this, 0L, m_callback_data);
-	} else if (m_name.empty() && m_symbol != Symbol::NONE){
+	} else if (m_name.empty() && m_symbol != NONE){
 		if (nk_button_symbol(ctx, (nk_symbol_type)m_symbol) && m_callback)
 			m_callback(this, 0L, m_callback_data);
 	} else {
@@ -234,8 +234,8 @@ NkLayoutRow::NkLayoutRow(int height, int item_width, int cols, bool dynamic)
 
 NkLayoutRow::~NkLayoutRow()
 {
-	for (NkBase* elem : m_elements){
-		delete elem;
+	for (int i = 0; i < m_elements.size(); ++i){
+		delete m_elements[i];
 	}
 }
 
@@ -266,13 +266,13 @@ NkLayoutRow::draw(nk_context* ctx)
 			nk_layout_row_dynamic(ctx, m_height, m_num_columns);
 	}
 
-	for (NkBase* elem : m_elements){
-		if (m_is_row_dynamic && elem->get_row_width() > 0){
-			nk_layout_row_push(ctx, elem->get_row_width());
+	for (int i = 0; i < m_elements.size(); ++i){
+		if (m_is_row_dynamic && m_elements[i]->get_row_width() > 0){
+			nk_layout_row_push(ctx, m_elements[i]->get_row_width());
 		}
 		struct nk_rect bound = nk_widget_bounds(ctx);
-		elem->m_bound = *((struct bound*)&bound);
-		elem->draw(ctx);
+		m_elements[i]->m_bound = *((struct bound*)&bound);
+		m_elements[i]->draw(ctx);
 	}
 
 	if (m_is_row_dynamic){
@@ -389,12 +389,12 @@ NkImage::NkImage(std::string filename)
 {
 	m_impl = new image_impl;
     int n;
+    m_impl->texid = -1;
     m_impl->texture.pixel_data_type = NkTexture::TYPE_UCHAR;
     m_impl->texture.internal_format = NkTexture::RGBA_BYTE;
     m_impl->texture.data = stbi_load(filename.c_str(), &m_impl->texture.width, &m_impl->texture.height, &n, 0);
     if (!m_impl->texture.data){
     	fprintf(stderr, "NkImage::NkImage : Cannot load image %s\n", filename.c_str());
-    	m_impl->texid = -1;
     	return;
     }
 
@@ -505,7 +505,10 @@ NkCanvasWindow::NkCanvasWindow(std::string name, int x, int y, int width, int he
 {
 	m_impl = new cavas_impl;
 	m_impl->flags = 0;
-	m_impl->bg_color = {20,20,20, 255};
+	m_impl->bg_color.r = 20;
+	m_impl->bg_color.g = 20;
+	m_impl->bg_color.g = 20;
+	m_impl->bg_color.a = 255;
 }
 
 NkCanvasWindow::~NkCanvasWindow()
@@ -568,28 +571,28 @@ NkPainter::set_context(nk_context* ctx){
 void
 NkPainter::draw_fill_polygon(std::vector<NkVec2>& points, int width, const NkColor& colors)
 {
-	for (NkVec2& p : points){
-		p.x += m_bounds.x;
-		p.y += m_bounds.y;
+	for (int i = 0; i <  points.size(); ++i){
+		points[i].x += m_bounds.x;
+		points[i].y += m_bounds.y;
 	}
 	nk_fill_polygon(m_painter, (float*)points.data(), points.size(), nk_rgb(colors.r, colors.g, colors.b));
-	for (NkVec2& p : points){
-		p.x -= m_bounds.x;
-		p.y -= m_bounds.y;
+	for (int i = 0; i <  points.size(); ++i){
+		points[i].x -= m_bounds.x;
+		points[i].y -= m_bounds.y;
 	}
 }
 
 void
 NkPainter::draw_fill_polygon(std::vector<NkVec2>& points, int width, float thickness, const NkColor& colors)
 {
-	for (NkVec2& p : points){
-		p.x += m_bounds.x;
-		p.y += m_bounds.y;
+	for (int i = 0; i <  points.size(); ++i){
+		points[i].x += m_bounds.x;
+		points[i].y += m_bounds.y;
 	}
 	nk_stroke_polygon(m_painter, (float*)points.data(), points.size(), thickness, nk_rgb(colors.r, colors.g, colors.b));
-	for (NkVec2& p : points){
-		p.x -= m_bounds.x;
-		p.y -= m_bounds.y;
+	for (int i = 0; i <  points.size(); ++i){
+		points[i].x -= m_bounds.x;
+		points[i].y -= m_bounds.y;
 	}
 }
 
@@ -682,6 +685,9 @@ NkComboImage::NkComboImage(std::string name, int default_height)
 void
 NkComboImage::draw(nk_context* ctx)
 {
+	if (m_names.empty()){
+		return;
+	}
 	push_text_attributes(ctx);
 	int old_selected = m_selected;
 	struct nk_image* current_img = m_elems[m_selected]->get_image();
@@ -705,8 +711,12 @@ NkComboImage::draw(nk_context* ctx)
 void
 NkComboImage::add_element(NkImage* image, std::string name)
 {
-	m_elems.push_back(image);
-	m_names.push_back(name);
+	if (image->get_image()){
+		m_elems.push_back(image);
+		m_names.push_back(name);
+	} else {
+		fprintf(stderr, "Cannot insert NULL image %s\n", name.c_str());
+	}
 }
 
 /*
@@ -777,7 +787,7 @@ void NkProgress::draw(nk_context* ctx)
 {
 	int old_value = m_value;
 	push_text_attributes(ctx);
-	nk_progress(ctx, &m_value, m_max, m_modifiable ? NK_MODIFIABLE : NK_FIXED);
+	nk_progress(ctx, (nk_size*)&m_value, m_max, m_modifiable ? NK_MODIFIABLE : NK_FIXED);
 	pop_text_attributes(ctx);
 
 	if (old_value != m_value && m_callback){

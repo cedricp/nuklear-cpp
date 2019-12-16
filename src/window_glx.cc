@@ -577,28 +577,34 @@ NkWindowGLX::render()
 }
 
 void
-NkWindowGLX::draw_ui()
+NkWindowGLX::do_ui()
 {
 	/* GUI */
-	for (NkWidget* w : get_widgets()){
-		w->draw(get_ctx());
+	for (int i = 0; i < get_widgets().size(); ++i){
+		get_widgets()[i]->draw(get_ctx());
 	}
-
-    render();
-    nk_clear(get_ctx());
 }
 
 void
 NkWindowGLX::run()
 {
-	draw_ui();
+	do_ui();
+	render();
+	nk_clear(get_ctx());
+
 	while (is_running()){
 		bool evt = handle_events();
 		if (!evt){
 			usleep(25000);
 			continue;
 		}
-		draw_ui();
+		do_ui();
+		nk_clear(get_ctx());
+		nk_input_begin(get_ctx());
+		nk_input_end(get_ctx());
+		do_ui();
+		render();
+		nk_clear(get_ctx());
  	}
 }
 

@@ -16,8 +16,8 @@ public:
 	void run();
 	static NkWindow* create(int w, int h, bool aa = true);
 
-	void delete_texture(GLuint id) override;
-	GLuint create_texture(const NkTexture& texture) override;
+	void delete_texture(GLuint id);
+	GLuint create_texture(const NkTexture& texture);
 private:
 	NkWindowGLES2(int w, int h,
 			unsigned long max_vert_mem = DFT_MAX_VERTEX_MEMORY,
@@ -29,7 +29,7 @@ private:
 	bool handle_event();
 
 	void render();
-	void draw_ui();
+	void do_ui();
 
 	bool init_GL();
 	bool init_SDL();

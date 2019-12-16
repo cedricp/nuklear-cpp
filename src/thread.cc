@@ -57,3 +57,4 @@ void* Thread::join()
 	}
 	return NULL;
 }
+

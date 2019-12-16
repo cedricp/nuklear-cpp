@@ -136,8 +136,6 @@ NkWindowGLES2::~NkWindowGLES2()
 
 bool NkWindowGLES2::init_GL() {
     /* OpenGL setup */
-    glViewport(0, 0, get_width(), get_height());
-
     GLint status;
     struct nk_sdl_device *dev = &m_sdl_impl->ogl;
 
@@ -229,7 +227,6 @@ NkWindowGLES2::render()
     glViewport(0, 0, width, height);
     glClearColor(bg[0], bg[1], bg[2], bg[3]);
     glClear(GL_COLOR_BUFFER_BIT);
-
 
     SDL_GL_GetDrawableSize(m_sdl_impl->win, &display_width, &display_height);
     ortho[0][0] /= (GLfloat)width;
@@ -326,31 +323,37 @@ NkWindowGLES2::render()
 
 
 void
-NkWindowGLES2::draw_ui()
+NkWindowGLES2::do_ui()
 {
 	/* GUI */
-	for (NkWidget* w : get_widgets()){
-		w->draw(get_ctx());
+	for (int i = 0; i < get_widgets().size(); ++i){
+		get_widgets()[i]->draw(get_ctx());
 	}
-
-    render();
-    nk_clear(get_ctx());
 }
 
 void
 NkWindowGLES2::run()
 {
-	draw_ui();
+	do_ui();
+	render();
+	nk_clear(get_ctx());
+
 	while (is_running()){
 		bool evt = handle_events();
 		if (!evt){
 			/*
-			 * de-stress the processor
+			 * calm down the processor
 			 */
 			usleep(25000);
-			continue;
+		} else {
+			do_ui();
+			nk_clear(get_ctx());
+			nk_input_begin(get_ctx());
+			nk_input_end(get_ctx());
+			do_ui();
+			render();
+			nk_clear(get_ctx());
 		}
-		draw_ui();
  	}
 }
 
