@@ -51,7 +51,7 @@ gles2: $(TEST_GLES2)
 
 $(LIBRARY_GLES2): $(SRC_LIB_GLES2) include/nuklear.h
 	@mkdir -p bin
-	$(CXX) -shared $(SRC_LIB_GLES2) $(CFLAGS_GLES2) -o $(LIBRARY_GLES2) -I$(INCLUDE_DIR) 
+	$(CXX) -shared $(SRC_LIB_GLES2) $(CFLAGS_GLES2) -o $(LIBRARY_GLES2) -I$(INCLUDE_DIR) -fPIC
 	
 $(LIBRARY_GLX): $(SRC_LIB_GLX) include/nuklear.h
 	@mkdir -p bin
