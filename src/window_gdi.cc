@@ -22,16 +22,19 @@
 
 #include <nuklear.h>
 #include <nuklear_lib.h>
-//#include <thread.h>
+#include <thread.h>
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 480
 
-struct GdiFont {
+#define FONT_DEBUG 1
+
+struct gdi_font {
 	HFONT handle;
 	HDC dc;
 	LONG height;
-	struct nk_user_font nk;
+	struct nk_font font;
+	std::string font_filename;
 };
 
 struct ImageData {
@@ -44,7 +47,7 @@ struct ImageData {
 };
 
 struct gdi_impl {
-	GdiFont* font;
+	std::map<std::string, gdi_font*> font;
 	HWND wnd;
 	WNDCLASSW wc;
 	HBITMAP bitmap;
@@ -53,7 +56,7 @@ struct gdi_impl {
 	unsigned int width;
 	unsigned int height;
 	std::vector<ImageData> image_data;
-	//Thread_mutex event_mutex;
+	Thread_mutex event_mutex;
 	std::vector<UserEvent> event_queue;
 };
 
@@ -269,7 +272,7 @@ WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 
 static inline float nk_gdifont_get_text_width(nk_handle handle, float height,
 		const char *text, int len) {
-	GdiFont *font = (GdiFont*) handle.ptr;
+	gdi_font *font = (gdi_font*) handle.ptr;
 	SIZE size;
 	int wsize;
 	WCHAR* wstr;
@@ -583,7 +586,7 @@ static inline void nk_gdi_stroke_circle(HDC dc, short x, short y,
 //}
 
 static inline void nk_gdi_draw_text(HDC dc, short x, short y, unsigned short w,
-		unsigned short h, const char *text, int len, GdiFont *font,
+		unsigned short h, const char *text, int len, gdi_font *font,
 		struct nk_color cbg, struct nk_color cfg) {
 	int wsize;
 	WCHAR* wstr;
@@ -610,8 +613,8 @@ static inline void nk_gdi_clear(gdi_impl* gdi, struct nk_color col) {
 	ExtTextOutW(gdi->memory_dc, 0, 0, ETO_OPAQUE, &rect, NULL, 0, NULL);
 }
 
-NK_API inline void nk_gdi_set_font(struct nk_context* ctx, GdiFont *gdifont) {
-	struct nk_user_font *font = &gdifont->nk;
+NK_API inline void nk_gdi_set_font(struct nk_context* ctx, gdi_font *gdifont) {
+	struct nk_user_font *font = &gdifont->font.handle;
 	font->userdata = nk_handle_ptr(gdifont);
 	font->height = (float) gdifont->height;
 	font->width = nk_gdifont_get_text_width;
@@ -639,7 +642,7 @@ void NkWindowGDI::run() {
 			/*
 			 * calm down the processor
 			 */
-			Sleep(25);
+			Sleep(100);
 		} else {
 			do_ui();
 			nk_clear(get_ctx());
@@ -725,19 +728,9 @@ NkWindowGDI::handle_events() {
 
 	/* Input */
 	//bool needs_refresh = false;
+
 	MSG msg;
 	nk_input_begin(get_ctx());
-	if (!m_needs_refresh) {
-		if (GetMessageW(&msg, NULL, 0, 0) <= 0)
-			set_running(false);
-		else {
-			TranslateMessage(&msg);
-			DispatchMessageW(&msg);
-		}
-		m_needs_refresh = true;
-	} else {
-		m_needs_refresh = false;
-	}
 
 	while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
 		if (msg.message == WM_QUIT)
@@ -746,7 +739,18 @@ NkWindowGDI::handle_events() {
 		DispatchMessageW(&msg);
 		m_needs_refresh = true;
 	}
+
 	nk_input_end(get_ctx());
+
+	while (!m_gdi_impl->event_queue.empty()){
+		m_gdi_impl->event_mutex.lock();
+		UserEvent& ev = m_gdi_impl->event_queue.front();
+		m_needs_refresh |= true;
+		m_gdi_impl->event_queue.erase(m_gdi_impl->event_queue.begin());
+		m_gdi_impl->event_mutex.unlock();
+		ev.on_callback();
+	}
+
 	return m_needs_refresh;
 }
 
@@ -843,7 +847,7 @@ NkWindowGDI::render() {
 					(const struct nk_command_text*) cmd;
 			nk_gdi_draw_text(memory_dc, t->x, t->y, t->w, t->h,
 					(const char*) t->string, t->length,
-					(GdiFont*) t->font->userdata.ptr, t->background,
+					(gdi_font*) t->font->userdata.ptr, t->background,
 					t->foreground);
 		}
 			break;
@@ -912,12 +916,8 @@ NkWindowGDI::init_GDI(int width, int height) {
 			rect.right - rect.left, rect.bottom - rect.top,
 			NULL, NULL, m_gdi_impl->wc.hInstance, NULL);
 	m_gdi_impl->window_dc = GetDC(m_gdi_impl->wnd);
-	m_gdi_impl->font = font_create("Arial", 18);
-
-	nk_user_font *font = &m_gdi_impl->font->nk;
-	font->userdata = nk_handle_ptr(m_gdi_impl->font);
-	font->height = (float) m_gdi_impl->font->height;
-	font->width = nk_gdifont_get_text_width;
+	add_font("native", "Arial", 12);
+	nk_gdi_set_font(get_ctx(), (gdi_font*)get_user_font("native")->handle.userdata.ptr);
 
 	m_gdi_impl->bitmap = CreateCompatibleBitmap(m_gdi_impl->window_dc, width,
 			height);
@@ -926,22 +926,20 @@ NkWindowGDI::init_GDI(int width, int height) {
 	m_gdi_impl->height = height;
 	SelectObject(m_gdi_impl->memory_dc, m_gdi_impl->bitmap);
 
-	nk_init_default(get_ctx(), font);
+	nk_init_default(get_ctx(), &get_user_font("native")->handle);
 	get_ctx()->clip.copy = nk_gdi_clipboard_copy;
 	get_ctx()->clip.paste = nk_gdi_clipboard_paste;
 	return true;
 }
 
-GdiFont*
-NkWindowGDI::font_create(const char* name, int size) {
+void
+NkWindowGDI::add_font(std::string font_name, std::string filename, float size)
+{
 	TEXTMETRICW metric;
 	LOGFONTW lf;
-	GdiFont *font = (GdiFont*) calloc(1, sizeof(GdiFont));
-	if (!font) {
-		return NULL;
-	}
-	font->dc = CreateCompatibleDC(0);
-	lf.lfHeight = size;
+	gdi_font *gdifont = new gdi_font;
+	gdifont->dc = CreateCompatibleDC(0);
+	lf.lfHeight = -size;
 	lf.lfWidth = 0;
 	lf.lfEscapement = 0;
 	lf.lfOrientation = 0;
@@ -954,12 +952,50 @@ NkWindowGDI::font_create(const char* name, int size) {
 	lf.lfClipPrecision = 0;
 	lf.lfQuality = 0;
 	lf.lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
-	//lstrcpy(lf.lfFaceName, (const wchar_t*) name);
-	font->handle = CreateFontIndirectW(&lf);
-	SelectObject(font->dc, font->handle);
-	GetTextMetricsW(font->dc, &metric);
-	font->height = metric.tmHeight;
-	return font;
+	wcscpy(lf.lfFaceName, (const wchar_t*) filename.c_str());
+	//SetMapMode(gdifont->dc, MM_TEXT);
+	gdifont->handle = CreateFontIndirectW(&lf);
+	SelectObject(gdifont->dc, gdifont->handle);
+	GetTextMetricsW(gdifont->dc, &metric);
+	gdifont->height = metric.tmHeight;
+	gdifont->font_filename = filename;
+	gdifont->font.handle.width = nk_gdifont_get_text_width;
+	gdifont->font.handle.height = metric.tmHeight;
+	gdifont->font.handle.userdata = nk_handle_ptr(gdifont);
+	m_gdi_impl->font[font_name] = gdifont;
+}
+
+struct nk_font*
+NkWindowGDI::get_user_font(std::string font_name)
+{
+	if (font_name == "native" || m_gdi_impl->font.find(font_name) == m_gdi_impl->font.end()){
+		return &m_gdi_impl->font["native"]->font;
+	}
+	return &m_gdi_impl->font[font_name]->font;
+}
+
+void
+NkWindowGDI::load_fonts()
+{
+  // Useless
+}
+
+void
+NkWindowGDI::use_font(std::string font_name)
+{
+	if (m_gdi_impl->font.find(font_name) == m_gdi_impl->font.end()){
+		fprintf(stderr, "SDLWindow::use_font : Cannot use font [%s]\n", font_name.c_str());
+		return;
+	}
+	struct nk_user_font* font_handler = &m_gdi_impl->font[font_name]->font.handle;
+	if (!font_handler){
+		fprintf(stderr, "WindowGDI::use_font : font [%s] not loaded\n", font_name.c_str());
+		return;
+	}
+#ifdef FONT_DEBUG
+	printf("Using fonts %x\n", font_handler);
+#endif
+	nk_style_set_font(get_ctx(), font_handler);
 }
 
 /*
@@ -968,15 +1004,18 @@ NkWindowGDI::font_create(const char* name, int size) {
 void
 NkWindowGDI::push_user_event(UserEvent* ev)
 {
-	//m_gdi_impl->event_mutex.lock();
+	m_gdi_impl->event_mutex.lock();
 	m_gdi_impl->event_queue.push_back(*ev);
-	//m_gdi_impl->event_mutex.unlock();
+	m_gdi_impl->event_mutex.unlock();
 }
 
 void NkWindowGDI::shutdown() {
-	DeleteObject(m_gdi_impl->font->handle);
-	DeleteDC(m_gdi_impl->font->dc);
-	free(m_gdi_impl->font);
+	std::map<std::string, gdi_font*>::iterator it = m_gdi_impl->font.begin();
+	for (; it != m_gdi_impl->font.end(); ++it){
+		DeleteObject(it->second->handle);
+		DeleteDC(it->second->dc);
+		delete it->second;
+	}
 
 	ReleaseDC(m_gdi_impl->wnd, m_gdi_impl->window_dc);
 	UnregisterClassW(m_gdi_impl->wc.lpszClassName, m_gdi_impl->wc.hInstance);
@@ -984,14 +1023,16 @@ void NkWindowGDI::shutdown() {
 
 UserEvent::UserEvent()
 {
+	NkWindowGDI* wingdi = (NkWindowGDI*)NkWindow::get();
 	m_event_idx = 0;
-	NkWindow::get()->register_user_event(this);
+	wingdi->register_user_event(this);
 }
 
 UserEvent::~UserEvent()
 {
+	NkWindowGDI* wingdi = (NkWindowGDI*)NkWindow::get();
 	if (m_event_idx != -1)
-		NkWindow::get()->unregister_user_event(this);
+		wingdi->unregister_user_event(this);
 }
 
 void UserEvent::push(int code, void* data1, void* data2)
@@ -1001,5 +1042,12 @@ void UserEvent::push(int code, void* data1, void* data2)
 	m_userdata1 = data1;
 	m_userdata2 = data2;
 	wingdi->push_user_event(this);
+}
+
+void
+UserEvent::on_callback(void* data1, void* data2)
+{
+	if (m_callback)
+		m_callback(this, (void*)this, m_callback_data);
 }
 

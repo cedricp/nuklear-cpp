@@ -198,7 +198,6 @@ static nkglUniform1f glUniform1f;
 static nkglUniformMatrix3fv glUniformMatrix3fv;
 static nkglUniformMatrix4fv glUniformMatrix4fv;
 
-#define NK_SHADER_VERSION "#version 300 es\n"
 
 static int gl_err = nk_false;
 static int gl_error_handler(Display *dpy, XErrorEvent *ev)
@@ -268,6 +267,8 @@ nk_x11_stricmpn(const char *a, const char *b, int len)
     if (i != len) return 1;
     return 0;
 }
+
+#define NK_SHADER_VERSION "#version 300 es\n"
 
 static const GLchar *vertex_shader =
 	NK_SHADER_VERSION
@@ -879,9 +880,9 @@ NkWindowGLX::handle_events()
 		m_glx_impl->event_mutex.lock();
 		UserEvent& ev = m_glx_impl->event_queue.front();
 		event_flag |= true;
-		ev.on_callback();
 		m_glx_impl->event_queue.erase(m_glx_impl->event_queue.begin());
 		m_glx_impl->event_mutex.unlock();
+		ev.on_callback();
 	}
 
 

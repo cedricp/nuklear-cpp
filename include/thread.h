@@ -1,9 +1,15 @@
 #ifndef THREAD_H
 #define THREAD_H
 
+#ifdef WINBUILD
+#include <windows.h>
+#else
 #include <pthread.h>
+#endif
 #include <unistd.h>
 #include <nuklear_lib.h>
+
+#ifndef WINBUILD
 
 class Thread_mutex {
 	pthread_mutex_t m_mutex;
@@ -25,6 +31,31 @@ public:
 	}
 };
 
+#else
+class Thread_mutex {
+	HANDLE m_mutex;
+public:
+	Thread_mutex(){
+		m_mutex = CreateMutex( NULL, FALSE, NULL );
+	}
+	~Thread_mutex(){
+		unlock();
+		CloseHandle(m_mutex);
+	}
+	bool try_lock(){
+		return WaitForSingleObject(m_mutex, 0) != WAIT_TIMEOUT;
+	}
+	bool lock(){
+		WaitForSingleObject(m_mutex, INFINITE);
+		return true;
+	}
+	bool unlock(){
+		ReleaseMutex(m_mutex);
+		return true;
+	}
+};
+#endif
+
 class Thread_auto_mutex
 {
 	Thread_mutex& m_mutex;
@@ -38,8 +69,16 @@ public:
 };
 
 class Thread {
-	UserEvent m_thread_exit_event;
+#ifdef WINBUILD
+	static unsigned __stdcall ThreadEntry(void* pUserData) {
+		((Thread*)pUserData)->run();
+	}
+	DWORD m_thread_id;
+#else
 	pthread_t m_thread_id;
+#endif
+
+	UserEvent m_thread_exit_event;
 	volatile bool m_running;
 	volatile bool m_pause;
 	bool m_loop;
@@ -80,6 +119,5 @@ public:
 		return m_running;
 	}
 };
-
 
 #endif

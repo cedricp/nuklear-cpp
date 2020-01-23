@@ -76,10 +76,10 @@ public:
 	int  get_height();
 	unsigned long timestamp(void);
 
-	void load_font(std::string font_file, std::string font_name, int size);
-	void use_font(std::string font_name);
-	void add_font(std::string font_name, std::string filename, float size);
-	struct nk_font* get_user_font(std::string font_name);
+	virtual void load_font(std::string font_file, std::string font_name, int size){}
+	virtual void use_font(std::string font_name);
+	virtual void add_font(std::string font_name, std::string filename, float size);
+	virtual struct nk_font* get_user_font(std::string font_name);
 
 	virtual void delete_texture(GLuint id) = 0;
 	virtual GLuint create_texture(const NkTexture& texture) = 0;

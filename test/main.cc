@@ -1,7 +1,5 @@
 #include "nuklear_lib.h"
-#ifndef WINBUILD
 #include "thread.h"
-#endif
 #include "timer.h"
 #include <string>
 #include <math.h>
@@ -20,7 +18,6 @@
 #include <windows.h>
 #endif
 
-#ifndef WINBUILD
 class ThreadTest : public Thread
 {
 	unsigned long time;
@@ -35,19 +32,20 @@ public:
 			event.push(0, (void*)time);
 			time = NkWindow::get()->timestamp();
 		}
-
+		printf("Thread !!\n");
+#ifndef WINBUILD
 		usleep(50000);
+#else
+		Sleep(2000);
+#endif
 	}
 };
-#endif
 
 class test {
 	NkWindow* screen;
 	NkChartSlot* m_slot0;
 	Timer timer;
-#ifndef WINBUILD
 	ThreadTest threadtest;
-#endif
 public:
 #ifndef WINBUILD
 #ifdef NUKLEAR_GLES2
@@ -61,7 +59,7 @@ public:
 		screen->add_font("test", "/sources/GIT/nuklear/extra_font/Raleway-Bold.ttf", 16);
 		screen->add_font("test2", "/sources/GIT/nuklear/extra_font/kenvector_future_thin.ttf", 24);
 		screen->load_fonts();
-		screen->use_font("native");
+		screen->use_font("test");
 
 		NkButton *button = new NkButton("Button 1");
 		NkButton *button1 = new NkButton("Button 2", NkButton::PLUS);
@@ -156,10 +154,8 @@ public:
 		CONNECT_CALLBACK2((checklist), on_change, this);
 		CONNECT_CALLBACK((&timer), on_timer);
 		timer.start();
-#ifndef WINBUILD
 		CONNECT_CALLBACK((&threadtest.event), on_thread);
 		threadtest.start();
-#endif
 	}
 
 	~test(){
@@ -191,7 +187,6 @@ IMPLEMENT_CALLBACK_METHOD(on_timer, test)
 IMPLEMENT_CALLBACK_METHOD(on_change, test)
 {
 	int which = *((int*)data);
-	printf("Data [%i]\n", which);
 	screen->set_stye((NkWindow::StyleTheme)which);
 }
 

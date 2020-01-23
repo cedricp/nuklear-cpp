@@ -3,6 +3,7 @@
 IMPLEMENT_STATIC_CALLBACK_METHOD(on_exit_event, Thread)
 typedef void * (*THREADFUNCPTR)(void *);
 
+
 Thread::Thread(bool loop)  : m_running(false),
 							m_pause(false),
 							m_loop(loop),
@@ -19,10 +20,15 @@ Thread::~Thread()
 }
 
 void Thread::start()
+
 {
 	if (!m_running){
 		m_running = true;
+#ifndef WINBUILD
 		pthread_create(&m_thread_id, NULL, (THREADFUNCPTR)&Thread::run, this);
+#else
+		CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)&ThreadEntry,this,0,&m_thread_id);
+#endif
 	}
 }
 
@@ -44,17 +50,24 @@ void* Thread::run()
 	}
 	m_running = false;
 	m_thread_exit_event.push();
+#ifndef WINBUILD
 	pthread_exit(NULL);
+#else
+
+#endif
 }
 
 void* Thread::join()
 {
 	if (m_thread_id){
 		void* status = NULL;
+#ifndef WINBUILD
 		pthread_join(m_thread_id, &status);
+#else
+
+#endif
 		m_thread_id = 0;
 		return status;
 	}
 	return NULL;
 }
-

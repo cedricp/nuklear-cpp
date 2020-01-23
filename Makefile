@@ -30,16 +30,19 @@ TEST_WIN32 = bin/test_win32.exe
 # Flags
 INCLUDE_DIR=-Iinclude -Iothers
 CFLAGS_BASE=-pedantic -ggdb $(INCLUDE_DIR)
+
 CFLAGS_GLES2 +=$(CFLAGS_BASE) -I$(SDL_INCLUDE) -L$(SDL_LIB) -DNUKLEAR_GLES2 -std=c++11
 CFLAGS_GLX +=$(CFLAGS_BASE) -DNUKLEAR_GLX -std=c++11
+
 CFLAGS_WINCE +=$(CFLAGS_BASE) -gstabs -DNUKLEAR_WINCE -DWINCE -DWINBUILD -D_WIN32_WCE=0x400  -D_WIN32_IE=0x400 -DWINVER=0x400 -D__USE_W32_SOCKETS  -DUNDER_CE -D_UNICODE #-D__CEGCC__
 CFLAGS_WIN32 +=$(CFLAGS_BASE) -gstabs -DNUKLEAR_WINCE -DWIN32 -DWINBUILD -D__USE_W32_SOCKETS -D_UNICODE
-BASE_SRC_LIB = src/window.cc src/nuklear_lib.cpp src/thread.cc src/timer.cc 
+
+BASE_SRC_LIB = src/window.cc src/nuklear_lib.cpp src/thread.cc src/timer.cc
+ 
 SRC_LIB_GLES2 = src/window_gles2.cc $(BASE_SRC_LIB)
 SRC_LIB_GLX = src/window_glx.cc $(BASE_SRC_LIB)
-SRC_LIB_WIN = src/window.cc src/nuklear_lib.cpp src/timer.cc src/window_gdi.cc test/main.cc
 SRC_MAIN = test/main.cc
-
+SRC_WIN = src/window.cc src/nuklear_lib.cpp src/timer.cc src/window_gdi.cc src/thread.cc $(SRC_MAIN)
 
 all: $(TARGET)
 
@@ -63,11 +66,11 @@ $(TEST_GLES2): $(SRC_MAIN) $(LIBRARY_GLES2)
 $(TEST_GLX): $(SRC_MAIN) $(LIBRARY_GLX)
 	$(CXX) $(SRC_MAIN) $(CFLAGS_GLX) -o $(TEST_GLX) -Lbin -lnuklear_glx -lm -x11 -lGLX -lGL -lGLdispatch -lpthread
 
-$(TEST_WINCE): $(SRC_LIB_WINCE)
-	$(CXX) $(CFLAGS_WINCE) $(SRC_LIB_WIN) -o $(TEST_WINCE) -Lbin -static-libgcc -Wl,-Bstatic -lstdc++
+$(TEST_WINCE): $(SRC_WIN)
+	$(CXX) $(CFLAGS_WINCE) $(SRC_WIN) -o $(TEST_WINCE) -Lbin -static-libgcc -Wl,-Bstatic -lstdc++
 
-$(TEST_WIN32): $(SRC_LIB_WINCE)
-	$(CXX) $(CFLAGS_WIN32) $(SRC_LIB_WIN) -o $(TEST_WIN32) -Lbin -lgdi32 -static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++
+$(TEST_WIN32): $(SRC_WIN)
+	$(CXX) $(CFLAGS_WIN32) $(SRC_WIN) -o $(TEST_WIN32) -Lbin -lgdi32 -static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++
 
 wince: $(TEST_WINCE)
 
